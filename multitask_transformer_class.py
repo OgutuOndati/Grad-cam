@@ -49,13 +49,14 @@ class MultitaskTransformerModel(nn.Module):
 
     def __init__(self, task_type, device, nclasses, seq_len, batch, input_size, emb_size, nhead, nhid, nhid_tar, nhid_task, nlayers, dropout = 0.1):
         super(MultitaskTransformerModel, self).__init__()
+        self.task_type = task_type
         # from torch.nn import TransformerEncoder, TransformerEncoderLayer
         
         self.trunk_net = nn.Sequential(
             nn.Linear(input_size, emb_size),
-            nn.BatchNorm1d(batch),
+            nn.BatchNorm1d(emb_size),
             PositionalEncoding(seq_len, emb_size, dropout),
-            nn.BatchNorm1d(batch)
+            nn.BatchNorm1d(emb_size)
         )
         
         # encoder_layers = transformer_encoder_class.TransformerEncoderLayer(emb_size, nhead, nhid, out_channel, filter_height, filter_width, dropout)
@@ -65,7 +66,7 @@ class MultitaskTransformerModel(nn.Module):
         encoder_layers = transformer.TransformerEncoderLayer(emb_size, nhead, nhid, dropout)
         self.transformer_encoder = transformer.TransformerEncoder(encoder_layers, nlayers, device)
         
-        self.batch_norm = nn.BatchNorm1d(batch)
+        self.batch_norm = nn.BatchNorm1d(emb_size)
         
         # Task-aware Reconstruction Layers
         self.tar_net = nn.Sequential(
@@ -125,10 +126,46 @@ class MultitaskTransformerModel(nn.Module):
             output = self.reg_net(x[-1])
         return output, attn
 
+    # def register_hooks(self, layer_name):
+    #     """
+    #     Register hooks to capture gradients and activations from a specified layer.
+    #     """
+    #     self.gradients = []
+    #     self.activations = []
+
+    #     def backward_hook(module, grad_in, grad_out):
+    #         self.gradients.append(grad_out[0])
+
+    #     def forward_hook(module, input, output):
+    #         self.activations.append(output)
+
+    #     # Find the target layer and register hooks
+    #     def find_layer(module, name):
+    #         for child_name, child_module in module.named_children():
+    #             if child_name == name:
+    #                 return child_module
+    #             elif len(list(child_module.children())) > 0:
+    #                 found = find_layer(child_module, name)
+    #                 if found:
+    #                     return found
+    #         return None
+
+    #     target_layer = find_layer(self, layer_name)
+    #     if target_layer:
+    #         target_layer.register_forward_hook(forward_hook)
+    #         target_layer.register_backward_hook(backward_hook)
+    #     else:
+    #         raise ValueError(f"Layer '{layer_name}' not found in the model.")
+
+    #     return self.gradients, self.activations
+    
+    
+
+    def get_target_layer(self):
+    # Return the last layer of the TransformerEncoder
+        return self.transformer_encoder.layers[-1]
+
     def register_hooks(self, layer_name):
-        """
-        Register hooks to capture gradients and activations from a specified layer.
-        """
         self.gradients = []
         self.activations = []
 
@@ -138,30 +175,14 @@ class MultitaskTransformerModel(nn.Module):
         def forward_hook(module, input, output):
             self.activations.append(output)
 
-        # Find the target layer and register hooks
-        def find_layer(module, name):
-            for child_name, child_module in module.named_children():
-                if child_name == name:
-                    return child_module
-                elif len(list(child_module.children())) > 0:
-                    found = find_layer(child_module, name)
-                    if found:
-                        return found
-            return None
-
-        target_layer = find_layer(self, layer_name)
+        target_layer = self.get_target_layer()  # Get the actual layer
         if target_layer:
             target_layer.register_forward_hook(forward_hook)
             target_layer.register_backward_hook(backward_hook)
         else:
             raise ValueError(f"Layer '{layer_name}' not found in the model.")
-
-        return self.gradients, self.activations
     
-    def get_target_layer(self):
-    # Return the last layer of the TransformerEncoder
-        return self.transformer_encoder.layers[-1]
-
+        return self.gradients, self.activations
 
 '''
 device = 'cuda:2'    
