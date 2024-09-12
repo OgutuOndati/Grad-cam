@@ -43,17 +43,40 @@ def get_fixed_hyperparameters(prop, args):
 
 
 
-def get_prop(args):
+# def get_prop(args):
     
-    # loading optimized hyperparameters
-    # prop = get_optimized_hyperparameters(args.dataset)
+#     # loading optimized hyperparameters
+#     # prop = get_optimized_hyperparameters(args.dataset)
 
-    # loading user-specified hyperparameters
-    prop = get_user_specified_hyperparameters(args)
+#     # loading user-specified hyperparameters
+#     prop = get_user_specified_hyperparameters(args)
     
-    # loading fixed hyperparameters
-    prop = get_fixed_hyperparameters(prop, args)
-    return prop
+#     # loading fixed hyperparameters
+#     prop = get_fixed_hyperparameters(prop, args)
+#     return prop
+
+def get_prop(args):
+    return {
+        'dataset': args.dataset,
+        'batch': args.batch,
+        'lr': args.lr,
+        'nlayers': args.nlayers,
+        'emb_size': args.emb_size,
+        'nhead': args.nhead,
+        'task_rate': args.task_rate,
+        'masking_ratio': args.masking_ratio,
+        'lamb': args.lamb,
+        'epochs': args.epochs,
+        'ratio_highest_attention': args.ratio_highest_attention,
+        'avg': args.avg,
+        'dropout': args.dropout,
+        'nhid': args.nhid,
+        'nhid_task': args.nhid_task,
+        'nhid_tar': args.nhid_tar,
+        'task_type': args.task_type,
+        'gradcam_freq': args.gradcam_freq  # Add this line
+    }
+
 
 
 
@@ -330,30 +353,86 @@ import cv2
 import matplotlib.pyplot as plt
 from gradcam_utils import compute_gradcam, visualize_gradcam
 
+# def training(model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer, X_train_task, y_train_task, X_test, y_test, prop):
+#     tar_loss_masked_arr, tar_loss_unmasked_arr, tar_loss_arr, task_loss_arr, min_task_loss = [], [], [], [], math.inf
+#     acc, rmse, mae = 0, math.inf, math.inf
+
+#     instance_weights = torch.as_tensor(torch.rand(X_train_task.shape[0], prop['seq_len']), device=prop['device'])
+    
+#     # Register hooks to capture gradients and activations
+#     def hook_fn(module, grad_in, grad_out):
+#         model.gradients = grad_in
+#         model.activations = grad_out
+
+#     target_layer = model.class_net[6]  # Example: select the layer for Grad-CAM (change as needed)
+#     handle = target_layer.register_forward_hook(hook_fn)
+    
+#     for epoch in range(1, prop['epochs'] + 1):
+        
+#         X_train_tar, y_train_tar_masked, y_train_tar_unmasked, boolean_indices_masked, boolean_indices_unmasked = \
+#             random_instance_masking(X_train_task, prop['masking_ratio'], prop['ratio_highest_attention'], instance_weights)
+        
+#         tar_loss_masked, tar_loss_unmasked, task_loss, instance_weights = multitask_train(
+#             model, criterion_tar, criterion_task, optimizer, 
+#             X_train_tar, X_train_task, y_train_tar_masked, y_train_tar_unmasked, y_train_task, 
+#             boolean_indices_masked, boolean_indices_unmasked, prop
+#         )
+        
+#         tar_loss_masked_arr.append(tar_loss_masked)
+#         tar_loss_unmasked_arr.append(tar_loss_unmasked)
+#         tar_loss = tar_loss_masked + tar_loss_unmasked
+#         tar_loss_arr.append(tar_loss)
+#         task_loss_arr.append(task_loss)
+#         print('Epoch: ' + str(epoch) + ', TAR Loss: ' + str(tar_loss), ', TASK Loss: ' + str(task_loss))
+
+#         # Save model and optimizer for lowest training loss on the end task
+#         if task_loss < min_task_loss:
+#             min_task_loss = task_loss
+#             best_model.load_state_dict(model.state_dict())
+#             best_optimizer.load_state_dict(optimizer.state_dict())
+    
+#         # Saved best model state at the lowest training loss is evaluated on the official test set
+#         test_metrics = test(best_model, X_test, y_test, prop['batch'], prop['nclasses'], criterion_task, prop['task_type'], prop['device'], prop['avg'])
+
+#         if prop['task_type'] == 'classification' and test_metrics[1] > acc:
+#             acc = test_metrics[1]
+#         elif prop['task_type'] == 'regression' and test_metrics[0] < rmse:
+#             rmse = test_metrics[0]
+#             mae = test_metrics[1]
+
+#         # Compute and visualize Grad-CAM after each epoch (or as needed)
+#         if epoch % prop['gradcam_freq'] == 0:
+#             model.eval()
+#             with torch.no_grad():
+#                 outputs, _ = model(X_test.to(prop['device']), task_type=prop['task_type'])
+#                 loss = criterion_task(outputs, y_test.to(prop['device']))
+#                 loss.backward()
+                
+#                 cam = compute_gradcam(model.gradients, model.activations)
+#                 visualize_gradcam(cam, X_test[0].cpu().numpy())
+
+#     if prop['task_type'] == 'classification':
+#         print('Dataset: ' + prop['dataset'] + ', Acc: ' + str(acc))
+#     elif prop['task_type'] == 'regression':
+#         print('Dataset: ' + prop['dataset'] + ', RMSE: ' + str(rmse) + ', MAE: ' + str(mae))
+
+#     del model
+#     torch.cuda.empty_cache()
+#     handle.remove()  # Remove the hook when done
+
 def training(model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer, X_train_task, y_train_task, X_test, y_test, prop):
     tar_loss_masked_arr, tar_loss_unmasked_arr, tar_loss_arr, task_loss_arr, min_task_loss = [], [], [], [], math.inf
     acc, rmse, mae = 0, math.inf, math.inf
 
     instance_weights = torch.as_tensor(torch.rand(X_train_task.shape[0], prop['seq_len']), device=prop['device'])
-    
-    # Register hooks to capture gradients and activations
-    def hook_fn(module, grad_in, grad_out):
-        model.gradients = grad_in
-        model.activations = grad_out
-
-    target_layer = model.class_net[6]  # Example: select the layer for Grad-CAM (change as needed)
-    handle = target_layer.register_forward_hook(hook_fn)
-    
     for epoch in range(1, prop['epochs'] + 1):
         
         X_train_tar, y_train_tar_masked, y_train_tar_unmasked, boolean_indices_masked, boolean_indices_unmasked = \
             random_instance_masking(X_train_task, prop['masking_ratio'], prop['ratio_highest_attention'], instance_weights)
         
-        tar_loss_masked, tar_loss_unmasked, task_loss, instance_weights = multitask_train(
-            model, criterion_tar, criterion_task, optimizer, 
-            X_train_tar, X_train_task, y_train_tar_masked, y_train_tar_unmasked, y_train_task, 
-            boolean_indices_masked, boolean_indices_unmasked, prop
-        )
+        tar_loss_masked, tar_loss_unmasked, task_loss, instance_weights = multitask_train(model, criterion_tar, criterion_task, optimizer, 
+                                            X_train_tar, X_train_task, y_train_tar_masked, y_train_tar_unmasked, y_train_task, 
+                                            boolean_indices_masked, boolean_indices_unmasked, prop)
         
         tar_loss_masked_arr.append(tar_loss_masked)
         tar_loss_unmasked_arr.append(tar_loss_unmasked)
@@ -377,16 +456,12 @@ def training(model, optimizer, criterion_tar, criterion_task, best_model, best_o
             rmse = test_metrics[0]
             mae = test_metrics[1]
 
-        # Compute and visualize Grad-CAM after each epoch (or as needed)
-        if epoch % prop['gradcam_freq'] == 0:
-            model.eval()
-            with torch.no_grad():
-                outputs, _ = model(X_test.to(prop['device']), task_type=prop['task_type'])
-                loss = criterion_task(outputs, y_test.to(prop['device']))
-                loss.backward()
-                
-                cam = compute_gradcam(model.gradients, model.activations)
-                visualize_gradcam(cam, X_test[0].cpu().numpy())
+        # Perform Grad-CAM analysis at specified intervals
+        if prop.get('gradcam_freq', 0) > 0 and epoch % prop['gradcam_freq'] == 0:
+            print('Grad-CAM analysis start...')
+            gradcam_results = perform_gradcam_analysis(model, X_test, prop['gradcam_freq'], prop['device'])
+            save_gradcam_results(gradcam_results)
+            print('Grad-CAM analysis complete...')
 
     if prop['task_type'] == 'classification':
         print('Dataset: ' + prop['dataset'] + ', Acc: ' + str(acc))
@@ -395,29 +470,77 @@ def training(model, optimizer, criterion_tar, criterion_task, best_model, best_o
 
     del model
     torch.cuda.empty_cache()
-    handle.remove()  # Remove the hook when done
 
-import torch
-import numpy as np
-import cv2
 
-def compute_gradcam(gradients, activations):
-    """
-    Compute the Grad-CAM heatmap from the captured gradients and activations.
-    """
-    gradients = gradients[0].mean(dim=[0, 2])
-    activations = activations[0]
+# import torch
+# import numpy as np
+# import cv2
 
-    # Compute the weighted sum of activations
-    weights = gradients
-    cam = torch.zeros(activations.shape[1:])
+# def compute_gradcam(gradients, activations):
+#     """
+#     Compute the Grad-CAM heatmap from the captured gradients and activations.
+#     """
+#     gradients = gradients[0].mean(dim=[0, 2])
+#     activations = activations[0]
 
-    for i, w in enumerate(weights):
-        cam += w * activations[i]
+#     # Compute the weighted sum of activations
+#     weights = gradients
+#     cam = torch.zeros(activations.shape[1:])
 
-    # Apply ReLU activation
-    cam = torch.nn.functional.relu(cam)
-    cam = cam - cam.min()
-    cam = cam / cam.max()  # Normalize
+#     for i, w in enumerate(weights):
+#         cam += w * activations[i]
 
-    return cam.numpy()
+#     # Apply ReLU activation
+#     cam = torch.nn.functional.relu(cam)
+#     cam = cam - cam.min()
+#     cam = cam / cam.max()  # Normalize
+
+#     return cam.numpy()
+
+from gradcam import GradCAM
+
+def perform_gradcam_analysis(model, X_test, gradcam_freq, device):
+    model.eval()
+    gradcam_results = []
+    
+    # Define the target layer for Grad-CAM (e.g., last convolutional layer)
+    target_layer = model.get_target_layer()  # Implement this in your model if needed
+    
+    # Initialize Grad-CAM
+    gradcam = GradCAM(model, target_layer)
+    
+    # Process a subset of the test set based on gradcam_freq
+    num_samples = min(len(X_test), gradcam_freq)
+    
+    for i in range(num_samples):
+        # Prepare input
+        input_image = X_test[i].unsqueeze(0).to(device)  # Add batch dimension and move to device
+        
+        # Perform forward pass and Grad-CAM
+        output = model(input_image)
+        gradcam_result = gradcam(input_image, target_class=None)  # Pass target_class if needed
+        
+        gradcam_results.append(gradcam_result)
+    
+    return gradcam_results
+
+def save_gradcam_results(gradcam_results):
+    for i, gradcam_result in enumerate(gradcam_results):
+        # Convert Grad-CAM result to image format
+        heatmap = gradcam_result['heatmap']  # Ensure gradcam_result has 'heatmap' key
+        
+        # Normalize and save the heatmap
+        heatmap = np.uint8(255 * heatmap)  # Normalize to 0-255
+        color_heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)  # Apply color map
+        color_heatmap = cv2.cvtColor(color_heatmap, cv2.COLOR_BGR2RGB)  # Convert to RGB
+        
+        # Save image
+        filename = f'gradcam_result_{i}.png'
+        cv2.imwrite(filename, color_heatmap)
+        print(f'Saved Grad-CAM result to {filename}')
+        
+        # Optionally, display the result
+        plt.imshow(color_heatmap)
+        plt.title(f'Grad-CAM Result {i}')
+        plt.axis('off')
+        plt.show()

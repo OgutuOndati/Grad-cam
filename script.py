@@ -27,16 +27,18 @@ parser.add_argument('--nhid', type=int, default=128)#128
 parser.add_argument('--nhid_task', type=int, default=128)#128
 parser.add_argument('--nhid_tar', type=int, default=128)#128
 parser.add_argument('--task_type', type=str, default='classification', help='[classification, regression]')
+parser.add_argument('--gradcam_freq', type=int, default=0, help='Frequency of Grad-CAM analysis')
+
 args = parser.parse_args()
 
 
 
+# scripts.py
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     prop = utils.get_prop(args)
-    #path = './data/' + prop['dataset'] + '/'
     path = './' + prop['dataset'] + '/'
-    
+
     print('Data loading start...')
     X_train, y_train, X_test, y_test = utils.data_loader(args.dataset, path, prop['task_type'])
     print(X_train.shape, y_train.shape, X_test.shape, y_test.shape)
@@ -53,7 +55,7 @@ def main():
     
     print('Initializing model...')
     model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer = utils.initialize_training(prop)
-    print('Model intialized...')
+    print('Model initialized...')
 
     print('Training start...')
     utils.training(model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer, X_train_task, y_train_task, X_test, y_test, prop)
@@ -61,9 +63,7 @@ def main():
 
     if 'gradcam_freq' in prop and prop['gradcam_freq'] > 0:
         print('Grad-CAM analysis start...')
-        # Example: Perform Grad-CAM analysis on a few samples from the test set
         gradcam_results = utils.perform_gradcam_analysis(model, X_test, prop['gradcam_freq'], prop['device'])
-        # Save or display Grad-CAM results
         utils.save_gradcam_results(gradcam_results)
         print('Grad-CAM analysis complete...')
 

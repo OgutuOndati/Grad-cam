@@ -157,6 +157,10 @@ class MultitaskTransformerModel(nn.Module):
             raise ValueError(f"Layer '{layer_name}' not found in the model.")
 
         return self.gradients, self.activations
+    
+    def get_target_layer(self):
+        # Replace with your actual target layer
+        return self.target_conv_layer
 
 '''
 device = 'cuda:2'    
