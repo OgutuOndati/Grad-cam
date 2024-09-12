@@ -19,7 +19,7 @@ parser.add_argument('--nhead', type=int, default=8)
 parser.add_argument('--task_rate', type=float, default=0.5)
 parser.add_argument('--masking_ratio', type=float, default=0.15)
 parser.add_argument('--lamb', type=float, default=0.8)
-parser.add_argument('--epochs', type=int, default=6000)#300
+parser.add_argument('--epochs', type=int, default=2)#300
 parser.add_argument('--ratio_highest_attention', type=float, default=0.5)
 parser.add_argument('--avg', type=str, default='macro')
 parser.add_argument('--dropout', type=float, default=0.01)
@@ -27,7 +27,7 @@ parser.add_argument('--nhid', type=int, default=128)#128
 parser.add_argument('--nhid_task', type=int, default=128)#128
 parser.add_argument('--nhid_tar', type=int, default=128)#128
 parser.add_argument('--task_type', type=str, default='classification', help='[classification, regression]')
-parser.add_argument('--gradcam_freq', type=int, default=0, help='Frequency of Grad-CAM analysis')
+parser.add_argument('--gradcam_freq', type=int, default=2, help='Frequency of Grad-CAM analysis')
 
 args = parser.parse_args()
 
