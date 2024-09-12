@@ -499,10 +499,35 @@ def training(model, optimizer, criterion_tar, criterion_task, best_model, best_o
 
 from gradcam import GradCAM
 
+# def perform_gradcam_analysis(model, X_test, gradcam_freq, device):
+#     model.eval()
+#     gradcam_results = []
+    
+#     # Define the target layer for Grad-CAM (e.g., last convolutional layer)
+#     target_layer = model.get_target_layer()  # Implement this in your model if needed
+    
+#     # Initialize Grad-CAM
+#     gradcam = GradCAM(model, target_layer)
+    
+#     # Process a subset of the test set based on gradcam_freq
+#     num_samples = min(len(X_test), gradcam_freq)
+    
+#     for i in range(num_samples):
+#         # Prepare input
+#         input_image = X_test[i].unsqueeze(0).to(device)  # Add batch dimension and move to device
+        
+#         # Perform forward pass and Grad-CAM
+#         output = model(input_image)
+#         gradcam_result = gradcam(input_image, target_class=None)  # Pass target_class if needed
+        
+#         gradcam_results.append(gradcam_result)
+    
+#     return gradcam_results
+
 def perform_gradcam_analysis(model, X_test, gradcam_freq, device):
     model.eval()
     gradcam_results = []
-    
+
     # Define the target layer for Grad-CAM (e.g., last convolutional layer)
     target_layer = model.get_target_layer()  # Implement this in your model if needed
     
@@ -516,14 +541,15 @@ def perform_gradcam_analysis(model, X_test, gradcam_freq, device):
         # Prepare input
         input_image = X_test[i].unsqueeze(0).to(device)  # Add batch dimension and move to device
         
-        # Perform forward pass and Grad-CAM
-        output = model(input_image)
+        # Perform forward pass with task_type argument
+        output = model(input_image, task_type='classification')  # Update task_type as needed
+        
+        # Perform Grad-CAM analysis
         gradcam_result = gradcam(input_image, target_class=None)  # Pass target_class if needed
         
         gradcam_results.append(gradcam_result)
     
     return gradcam_results
-
 def save_gradcam_results(gradcam_results):
     for i, gradcam_result in enumerate(gradcam_results):
         # Convert Grad-CAM result to image format
