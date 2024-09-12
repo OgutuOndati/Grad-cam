@@ -59,6 +59,22 @@ def main():
     utils.training(model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer, X_train_task, y_train_task, X_test, y_test, prop)
     print('Training complete...')
 
+    if 'gradcam_freq' in prop and prop['gradcam_freq'] > 0:
+        print('Grad-CAM analysis start...')
+        # Example: Perform Grad-CAM analysis on a few samples from the test set
+        gradcam_results = utils.perform_gradcam_analysis(model, X_test, prop['gradcam_freq'], prop['device'])
+        # Save or display Grad-CAM results
+        utils.save_gradcam_results(gradcam_results)
+        print('Grad-CAM analysis complete...')
+
+    # if 'gradcam_freq' in prop and prop['gradcam_freq'] > 0:
+    #     print('Grad-CAM analysis start...')
+    #     # Example: Perform Grad-CAM analysis on a few samples from the test set
+    #     gradcam_results = utils.perform_gradcam_analysis(model, X_test, prop['gradcam_freq'], prop['device'])
+    #     # Save or display Grad-CAM results
+    #     utils.save_gradcam_results(gradcam_results)
+    #     print('Grad-CAM analysis complete...')
+
 
 
 if __name__ == "__main__":
