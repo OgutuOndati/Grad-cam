@@ -159,8 +159,9 @@ class MultitaskTransformerModel(nn.Module):
         return self.gradients, self.activations
     
     def get_target_layer(self):
-        # Replace with your actual target layer
-        return self.target_conv_layer
+    # Return the last layer of the TransformerEncoder
+        return self.transformer_encoder.layers[-1]
+
 
 '''
 device = 'cuda:2'    
