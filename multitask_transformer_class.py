@@ -126,6 +126,13 @@ class Permute(torch.nn.Module):
 #             output = self.reg_net(x[-1])
 #         return output, attn
 
+# 
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.nn import TransformerEncoder, TransformerEncoderLayer  # Ensure correct import
+
 class MultitaskTransformerModel(nn.Module):
 
     def __init__(self, task_type, device, nclasses, seq_len, batch, input_size, emb_size, nhead, nhid, nhid_tar, nhid_task, nlayers, dropout=0.1):
@@ -133,18 +140,17 @@ class MultitaskTransformerModel(nn.Module):
         self.task_type = task_type
         self.device = device
         
-        # Adjust the BatchNorm1d layers to use emb_size instead of batch
         self.trunk_net = nn.Sequential(
             nn.Linear(input_size, emb_size),
-            nn.BatchNorm1d(emb_size),  # Adjusted to emb_size
+            nn.BatchNorm1d(emb_size),
             PositionalEncoding(seq_len, emb_size, dropout),
-            nn.BatchNorm1d(emb_size)   # Adjusted to emb_size
+            nn.BatchNorm1d(emb_size)
         )
         
-        encoder_layers = transformer.TransformerEncoderLayer(d_model=emb_size, nhead=nhead, dim_feedforward=nhid, dropout=dropout)
-        self.transformer_encoder = transformer.TransformerEncoder(encoder_layers, num_layers=nlayers)
+        encoder_layers = TransformerEncoderLayer(d_model=emb_size, nhead=nhead, dim_feedforward=nhid, dropout=dropout)
+        self.transformer_encoder = TransformerEncoder(encoder_layers, num_layers=nlayers)
         
-        self.batch_norm = nn.BatchNorm1d(emb_size)  # Adjusted to emb_size
+        self.batch_norm = nn.BatchNorm1d(emb_size)
         
         # Task-aware Reconstruction Layers
         self.tar_net = nn.Sequential(
@@ -156,7 +162,6 @@ class MultitaskTransformerModel(nn.Module):
         )
 
         if task_type == 'classification':
-            # Classification Layers
             self.class_net = nn.Sequential(
                 nn.Linear(emb_size, nhid_task),
                 nn.ReLU(),
@@ -169,7 +174,6 @@ class MultitaskTransformerModel(nn.Module):
                 nn.Linear(nhid_task, nclasses)
             )
         else:
-            # Regression Layers
             self.reg_net = nn.Sequential(
                 nn.Linear(emb_size, nhid_task),
                 nn.ReLU(),
@@ -185,7 +189,6 @@ class MultitaskTransformerModel(nn.Module):
         x = self.transformer_encoder(x)  # Transformer Encoder expects (seq_len, batch, emb_size)
         x = self.batch_norm(x.permute(1, 0, 2)).permute(1, 0, 2)  # Permute for BatchNorm and revert
 
-        # Choose output based on task_type
         if task_type == 'reconstruction':
             output = self.tar_net(x.permute(1, 0, 2)).permute(1, 0, 2).cpu()
         elif task_type == 'classification':
@@ -195,7 +198,6 @@ class MultitaskTransformerModel(nn.Module):
         return output
 
     def get_target_layer(self):
-        # Return the last layer of the TransformerEncoder
         return self.transformer_encoder.layers[-1]
 
     def register_hooks(self, layer_name):
@@ -216,6 +218,7 @@ class MultitaskTransformerModel(nn.Module):
             raise ValueError(f"Layer '{layer_name}' not found in the model.")
     
         return self.gradients, self.activations
+
     # def register_hooks(self, layer_name):
     #     """
     #     Register hooks to capture gradients and activations from a specified layer.
