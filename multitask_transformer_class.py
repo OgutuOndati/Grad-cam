@@ -111,18 +111,47 @@ class MultitaskTransformerModel(nn.Module):
             
 
         
-    def forward(self, x, task_type):
-        x = self.trunk_net(x.permute(1, 0, 2))
-        x, attn = self.transformer_encoder(x)
-        x = self.batch_norm(x)
-        # x : seq_len x batch x emb_size
+    # def forward(self, x, task_type):
+    #     x = self.trunk_net(x.permute(1, 0, 2))
+    #     x, attn = self.transformer_encoder(x)
+    #     x = self.batch_norm(x)
+    #     # x : seq_len x batch x emb_size
 
+    #     if task_type == 'reconstruction':
+    #         output = self.tar_net(x).permute(1, 0, 2).cpu()
+    #     elif task_type == 'classification':
+    #         output = self.class_net(x[-1])
+    #     elif task_type == 'regression':
+    #         output = self.reg_net(x[-1])
+    #     return output, attn
+    
+    def forward(self, x, task_type):
+        # Permute dimensions to (seq_len, batch, input_size)
+        x = self.trunk_net(x.permute(1, 0, 2))  # x: seq_len x batch x input_size
+        
+        # Transformer encoder
+        x, attn = self.transformer_encoder(x)
+        
+        # Reshape for batch normalization
+        seq_len, batch_size, emb_size = x.shape
+        x = x.view(-1, emb_size)  # Reshape to (seq_len * batch_size, emb_size)
+        
+        # Apply batch normalization
+        x = self.batch_norm(x)  # Normalizes across the feature dimension (emb_size)
+        
+        # Reshape back to (seq_len, batch, emb_size)
+        x = x.view(seq_len, batch_size, emb_size)
+        
+        # If task is reconstruction
         if task_type == 'reconstruction':
             output = self.tar_net(x).permute(1, 0, 2).cpu()
+        
+        # If task is classification or regression, process the last output in the sequence
         elif task_type == 'classification':
-            output = self.class_net(x[-1])
+            output = self.class_net(x[-1])  # Use the last time step for classification
         elif task_type == 'regression':
-            output = self.reg_net(x[-1])
+            output = self.reg_net(x[-1])  # Use the last time step for regression
+        
         return output, attn
 
     # def register_hooks(self, layer_name):
